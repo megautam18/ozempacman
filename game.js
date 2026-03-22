@@ -115,21 +115,75 @@ function update(state, dt) {
   state.game.time += dt;
 
   const p = state.player;
+  const tiles = state.grid.tiles;
 
   // activate movement on first input
   if (p.direction === null && p.nextDirection !== null) {
     p.direction = p.nextDirection;
   }
 
-  // continuous movement
+  // turning — only allowed near tile center
+  if (p.direction && p.nextDirection !== null && p.nextDirection !== p.direction) {
+    const centerX = p.col * tileSize;
+    const centerY = p.row * tileSize;
+    const threshold = 3;
+
+    const nearCenter =
+      Math.abs(p.x - centerX) < threshold &&
+      Math.abs(p.y - centerY) < threshold;
+
+    if (nearCenter) {
+      // find target tile in nextDirection
+      let targetRow = p.row;
+      let targetCol = p.col;
+      switch (p.nextDirection) {
+        case "up":    targetRow--; break;
+        case "down":  targetRow++; break;
+        case "left":  targetCol--; break;
+        case "right": targetCol++; break;
+      }
+
+      // allow turn if target is not a wall
+      if (tiles[targetRow] && tiles[targetRow][targetCol] !== 1) {
+        p.direction = p.nextDirection;
+        p.x = centerX;  // snap to tile center
+        p.y = centerY;
+      }
+    }
+  }
+
+  // continuous movement with collision
   if (p.direction) {
     const speed = p.baseSpeed * dt;
 
+    let nextX = p.x;
+    let nextY = p.y;
+
     switch (p.direction) {
-      case "right": p.x += speed; break;
-      case "left":  p.x -= speed; break;
-      case "up":    p.y -= speed; break;
-      case "down":  p.y += speed; break;
+      case "right": nextX += speed; break;
+      case "left":  nextX -= speed; break;
+      case "up":    nextY -= speed; break;
+      case "down":  nextY += speed; break;
+    }
+
+    // check leading edge based on direction
+    const leadX = (p.direction === "right") ? nextX + tileSize - 1 : nextX;
+    const leadY = (p.direction === "down")  ? nextY + tileSize - 1 : nextY;
+
+    const checkCol = Math.floor(leadX / tileSize);
+    const checkRow = Math.floor(leadY / tileSize);
+
+    const inBounds =
+      checkRow >= 0 && checkRow < state.grid.rows &&
+      checkCol >= 0 && checkCol < state.grid.cols;
+
+    if (inBounds && tiles[checkRow][checkCol] !== 1) {
+      p.x = nextX;
+      p.y = nextY;
+    } else {
+      // snap to tile-aligned position so turning still works
+      p.x = p.col * tileSize;
+      p.y = p.row * tileSize;
     }
 
     // sync grid position from pixel position
