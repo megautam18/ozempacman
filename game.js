@@ -37,8 +37,8 @@ const state = {
     col: 7,
     x: 7 * Math.min(800 / 25, 600 / 25),   // col * tileSize
     y: 15 * Math.min(800 / 25, 600 / 25),   // row * tileSize
-    direction: "down",
-    nextDirection: "left",
+    direction: null,
+    nextDirection: null,
     weight: 0,
     baseSpeed: 100,
     alive: true
@@ -104,27 +104,38 @@ initGrid(state);
 
 // ─── Input ──────────────────────────────────────────────────
 function handleInput(state) {
-  // read `keys` and set intent on state (no movement logic)
+  if (keys["w"]) state.player.nextDirection = "up";
+  if (keys["s"]) state.player.nextDirection = "down";
+  if (keys["a"]) state.player.nextDirection = "left";
+  if (keys["d"]) state.player.nextDirection = "right";
 }
 
 // ─── Update ─────────────────────────────────────────────────
 function update(state, dt) {
   state.game.time += dt;
 
-  // continuous movement
   const p = state.player;
-  const speed = p.baseSpeed * dt;
 
-  switch (p.direction) {
-    case "right": p.x += speed; break;
-    case "left":  p.x -= speed; break;
-    case "up":    p.y -= speed; break;
-    case "down":  p.y += speed; break;
+  // activate movement on first input
+  if (p.direction === null && p.nextDirection !== null) {
+    p.direction = p.nextDirection;
   }
 
-  // sync grid position from pixel position
-  p.col = Math.floor(p.x / tileSize);
-  p.row = Math.floor(p.y / tileSize);
+  // continuous movement
+  if (p.direction) {
+    const speed = p.baseSpeed * dt;
+
+    switch (p.direction) {
+      case "right": p.x += speed; break;
+      case "left":  p.x -= speed; break;
+      case "up":    p.y -= speed; break;
+      case "down":  p.y += speed; break;
+    }
+
+    // sync grid position from pixel position
+    p.col = Math.floor(p.x / tileSize);
+    p.row = Math.floor(p.y / tileSize);
+  }
 }
 
 // ─── Render ─────────────────────────────────────────────────
@@ -156,9 +167,9 @@ function render(state) {
     }
   }
 
-  // draw player
-  const px = state.player.col * tileSize + tileSize / 2;
-  const py = state.player.row * tileSize + tileSize / 2;
+  // draw player (pixel-smooth position)
+  const px = state.player.x + tileSize / 2;
+  const py = state.player.y + tileSize / 2;
   ctx.fillStyle = "#ffdd00";
   ctx.beginPath();
   ctx.arc(px, py, tileSize * 0.4, 0, Math.PI * 2);
