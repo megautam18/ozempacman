@@ -35,6 +35,8 @@ const state = {
   player: {
     row: 15,
     col: 7,
+    prevRow: 15,
+    prevCol: 7,
     x: 7 * Math.min(800 / 25, 600 / 25),   // col * tileSize
     y: 15 * Math.min(800 / 25, 600 / 25),   // row * tileSize
     direction: null,
@@ -50,9 +52,12 @@ const state = {
   ],
 
   systems: {
-    hunger: {
-      timer: 0,
-      limit: 5
+    fullness: {
+      value: 0,
+      limit: 10
+    },
+    timer: {
+      value: 30
     },
     ozempic: {
       active: false,
@@ -89,9 +94,9 @@ function initGrid(state) {
       // player starting tile is empty
       } else if (r === state.player.row && c === state.player.col) {
         row.push(0);
-      // everything else is food
+      // randomized food (70% chance) or empty
       } else {
-        row.push(2);
+        row.push(Math.random() < 0.7 ? 2 : 0);
       }
     }
     tiles.push(row);
@@ -104,6 +109,8 @@ initGrid(state);
 
 // ─── Input ──────────────────────────────────────────────────
 function handleInput(state) {
+  if (!state.player.alive) return;
+
   if (keys["w"]) state.player.nextDirection = "up";
   if (keys["s"]) state.player.nextDirection = "down";
   if (keys["a"]) state.player.nextDirection = "left";
@@ -112,7 +119,16 @@ function handleInput(state) {
 
 // ─── Update ─────────────────────────────────────────────────
 function update(state, dt) {
+  if (!state.player.alive) return;
+
   state.game.time += dt;
+
+  // survival timer countdown
+  state.systems.timer.value -= dt;
+  if (state.systems.timer.value < 0) {
+    state.systems.timer.value = 0;
+    state.player.alive = false;
+  }
 
   const p = state.player;
   const tiles = state.grid.tiles;
@@ -121,6 +137,10 @@ function update(state, dt) {
   if (p.direction === null && p.nextDirection !== null) {
     p.direction = p.nextDirection;
   }
+
+  // store previous tile before movement
+  const prevRow = p.row;
+  const prevCol = p.col;
 
   // turning — only allowed near tile center
   if (p.direction && p.nextDirection !== null && p.nextDirection !== p.direction) {
@@ -154,42 +174,68 @@ function update(state, dt) {
 
   // continuous movement with collision
   if (p.direction) {
-    const speed = p.baseSpeed * dt;
+    // fullness-based speed
+    const fullness = state.systems.fullness.value;
+    const limit = state.systems.fullness.limit;
+    const ratio = fullness / limit;
 
-    let nextX = p.x;
-    let nextY = p.y;
-
-    switch (p.direction) {
-      case "right": nextX += speed; break;
-      case "left":  nextX -= speed; break;
-      case "up":    nextY -= speed; break;
-      case "down":  nextY += speed; break;
-    }
-
-    // check leading edge based on direction
-    const leadX = (p.direction === "right") ? nextX + tileSize - 1 : nextX;
-    const leadY = (p.direction === "down")  ? nextY + tileSize - 1 : nextY;
-
-    const checkCol = Math.floor(leadX / tileSize);
-    const checkRow = Math.floor(leadY / tileSize);
-
-    const inBounds =
-      checkRow >= 0 && checkRow < state.grid.rows &&
-      checkCol >= 0 && checkCol < state.grid.cols;
-
-    if (inBounds && tiles[checkRow][checkCol] !== 1) {
-      p.x = nextX;
-      p.y = nextY;
+    // stuck — too full to move
+    if (fullness >= limit) {
+      // skip movement entirely
     } else {
-      // snap to tile-aligned position so turning still works
-      p.x = p.col * tileSize;
-      p.y = p.row * tileSize;
-    }
+      let speed = p.baseSpeed * (1 - ratio);
+      speed = Math.max(20, speed); // never fully zero
+      const move = speed * dt;
 
-    // sync grid position from pixel position
-    p.col = Math.floor(p.x / tileSize);
-    p.row = Math.floor(p.y / tileSize);
+      let nextX = p.x;
+      let nextY = p.y;
+
+      switch (p.direction) {
+        case "right": nextX += move; break;
+        case "left":  nextX -= move; break;
+        case "up":    nextY -= move; break;
+        case "down":  nextY += move; break;
+      }
+
+      // check leading edge based on direction
+      const leadX = (p.direction === "right") ? nextX + tileSize - 1 : nextX;
+      const leadY = (p.direction === "down")  ? nextY + tileSize - 1 : nextY;
+
+      const checkCol = Math.floor(leadX / tileSize);
+      const checkRow = Math.floor(leadY / tileSize);
+
+      const inBounds =
+        checkRow >= 0 && checkRow < state.grid.rows &&
+        checkCol >= 0 && checkCol < state.grid.cols;
+
+      if (inBounds && tiles[checkRow][checkCol] !== 1) {
+        p.x = nextX;
+        p.y = nextY;
+      } else {
+        // snap to tile-aligned position so turning still works
+        p.x = p.col * tileSize;
+        p.y = p.row * tileSize;
+      }
+
+      // sync grid position from pixel position
+      p.col = Math.floor(p.x / tileSize);
+      p.row = Math.floor(p.y / tileSize);
+
+      // food eating — only check when entering a new tile
+      if (p.row !== prevRow || p.col !== prevCol) {
+        const tile = tiles[p.row][p.col];
+        if (tile === 2) {
+          tiles[p.row][p.col] = 0;
+          p.weight += 1;
+          state.systems.fullness.value += 1;
+        }
+      }
+    }
   }
+
+  // keep prevRow/prevCol in sync for external reads
+  p.prevRow = prevRow;
+  p.prevCol = prevCol;
 }
 
 // ─── Render ─────────────────────────────────────────────────
@@ -231,6 +277,18 @@ function render(state) {
 
   // draw UI panel
   renderPanel(state);
+
+  // game over overlay
+  if (!state.player.alive) {
+    ctx.fillStyle = "rgba(0,0,0,0.6)";
+    ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+    ctx.fillStyle = "#ff4444";
+    ctx.font = "bold 40px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("GAME OVER", LOGICAL_W / 2, LOGICAL_H / 2);
+  }
 }
 
 // ─── UI Panel ───────────────────────────────────────────────
@@ -275,26 +333,37 @@ function renderPanel(state) {
   ctx.fillText(String(state.player.weight), x, y);
   y += lineH + 4;
 
-  // hunger
+  // fullness
   ctx.fillStyle = "#aaa";
-  ctx.fillText("Hunger", x, y);
+  ctx.fillText("Fullness", x, y);
   y += lineH * 0.7;
-  const hungerPct = state.systems.hunger.timer / state.systems.hunger.limit;
+  const fullPct = state.systems.fullness.value / state.systems.fullness.limit;
   const barW = panelW - pad * 2;
   const barH = 10;
   // bar background
   ctx.fillStyle = "#333";
   ctx.fillRect(x, y, barW, barH);
   // bar fill
-  ctx.fillStyle = hungerPct > 0.7 ? "#ff4444" : "#44cc44";
-  ctx.fillRect(x, y, barW * Math.min(hungerPct, 1), barH);
+  ctx.fillStyle = fullPct >= 1 ? "#ff4444" : "#44cc44";
+  ctx.fillRect(x, y, barW * Math.min(fullPct, 1), barH);
   y += barH + 4;
   ctx.fillStyle = "#888";
   ctx.font = "11px monospace";
   ctx.fillText(
-    state.systems.hunger.timer.toFixed(1) + " / " + state.systems.hunger.limit,
+    state.systems.fullness.value + " / " + state.systems.fullness.limit,
     x, y
   );
+  y += lineH + 4;
+
+  ctx.font = "14px monospace";
+
+  // survival timer
+  ctx.fillStyle = "#aaa";
+  ctx.fillText("Timer", x, y);
+  y += lineH * 0.7;
+  const tRemain = state.systems.timer.value;
+  ctx.fillStyle = tRemain < 10 ? "#ff4444" : "#fff";
+  ctx.fillText(tRemain.toFixed(1) + "s", x, y);
   y += lineH + 4;
 
   ctx.font = "14px monospace";
