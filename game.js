@@ -94,9 +94,16 @@ function initGrid(state) {
       // player starting tile is empty
       } else if (r === state.player.row && c === state.player.col) {
         row.push(0);
-      // randomized food (70% chance) or empty
+      // randomized: 5% pill, 65% food, 30% empty
       } else {
-        row.push(Math.random() < 0.7 ? 2 : 0);
+        const roll = Math.random();
+        if (roll < 0.05) {
+          row.push(3);  // ozempic pill
+        } else if (roll < 0.7) {
+          row.push(2);  // food
+        } else {
+          row.push(0);  // empty
+        }
       }
     }
     tiles.push(row);
@@ -228,6 +235,9 @@ function update(state, dt) {
           tiles[p.row][p.col] = 0;
           p.weight += 1;
           state.systems.fullness.value += 1;
+        } else if (tile === 3) {
+          tiles[p.row][p.col] = 0;
+          state.systems.fullness.value = 0;
         }
       }
     }
@@ -262,6 +272,12 @@ function render(state) {
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
         ctx.arc(x + tileSize / 2, y + tileSize / 2, tileSize * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (tile === 3) {
+        // ozempic pill
+        ctx.fillStyle = "#00ff88";
+        ctx.beginPath();
+        ctx.arc(x + tileSize / 2, y + tileSize / 2, tileSize * 0.3, 0, Math.PI * 2);
         ctx.fill();
       }
     }
