@@ -80,19 +80,19 @@ const state = {
       row: 3, col: 3,
       x: 3 * Math.min(800 / 25, 600 / 25),
       y: 3 * Math.min(800 / 25, 600 / 25),
-      direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null
+      direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null, decisionTimer: 0
     },
     {
       row: 3, col: 21,
       x: 21 * Math.min(800 / 25, 600 / 25),
       y: 3 * Math.min(800 / 25, 600 / 25),
-      direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null
+      direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null, decisionTimer: 0
     },
     {
       row: 21, col: 15,
       x: 15 * Math.min(800 / 25, 600 / 25),
       y: 21 * Math.min(800 / 25, 600 / 25),
-      direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null
+      direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null, decisionTimer: 0
     }
   ],
 
@@ -174,6 +174,8 @@ function resetGame() {
   // reset systems
   state.systems.fullness.value = 0;
   state.systems.timer.value = 30;
+  state.systems.ozempic.active = false;
+  state.systems.ozempic.timer = 0;
 
   // reset time
   state.game.time = 0;
@@ -184,9 +186,9 @@ function resetGame() {
 
   // reset ghosts
   const ghostDefaults = [
-    { row: 3, col: 3, direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null },
-    { row: 3, col: 21, direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null },
-    { row: 21, col: 15, direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null }
+    { row: 3, col: 3, direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null, decisionTimer: 0 },
+    { row: 3, col: 21, direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null, decisionTimer: 0 },
+    { row: 21, col: 15, direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null, decisionTimer: 0 }
   ];
   for (let i = 0; i < state.ghosts.length; i++) {
     const def = ghostDefaults[i];
@@ -199,6 +201,7 @@ function resetGame() {
     g.speed = def.speed;
     g.color = def.color;
     g.lastTurnTile = def.lastTurnTile;
+    g.decisionTimer = def.decisionTimer;
   }
 }
 
@@ -237,6 +240,15 @@ function update(state, dt) {
     if (state.systems.timer.value < 0) {
       state.systems.timer.value = 0;
       state.player.alive = false;
+    }
+  }
+
+  // ozempic effect countdown
+  if (state.systems.ozempic.active) {
+    state.systems.ozempic.timer -= dt;
+    if (state.systems.ozempic.timer <= 0) {
+      state.systems.ozempic.timer = 0;
+      state.systems.ozempic.active = false;
     }
   }
 
@@ -333,6 +345,8 @@ function update(state, dt) {
         } else if (tile === 3) {
           tiles[p.row][p.col] = 0;
           state.systems.fullness.value = 0;
+          state.systems.ozempic.active = true;
+          state.systems.ozempic.timer = 5;
         }
       }
     }
@@ -346,6 +360,10 @@ function update(state, dt) {
   const opposite = { left: "right", right: "left", up: "down", down: "up" };
 
   for (const ghost of state.ghosts) {
+    // tick decision cooldown
+    ghost.decisionTimer -= dt;
+    if (ghost.decisionTimer < 0) ghost.decisionTimer = 0;
+
     // --- intersection direction choosing ---
     const centerX = ghost.col * tileSize;
     const centerY = ghost.row * tileSize;
@@ -356,7 +374,7 @@ function update(state, dt) {
 
     const tileKey = ghost.row + "," + ghost.col;
 
-    if (nearCenter && ghost.lastTurnTile !== tileKey) {
+    if (nearCenter && ghost.lastTurnTile !== tileKey && ghost.decisionTimer <= 0) {
       // find valid directions (non-wall neighbors)
       const dirOffsets = [
         { dir: "up",    dr: -1, dc: 0 },
@@ -384,13 +402,40 @@ function update(state, dt) {
         validDirs = validDirs.filter(d => d !== rev);
       }
 
-      // pick random direction
+      // pick direction: chase for first ghost, random for others
       if (validDirs.length > 0) {
-        ghost.direction = validDirs[Math.floor(Math.random() * validDirs.length)];
+        const isChaser = (ghost === state.ghosts[0]);
+
+        if (isChaser) {
+          // choose direction that minimizes Manhattan distance to player
+          let bestDir = validDirs[0];
+          let bestDist = Infinity;
+
+          for (const dir of validDirs) {
+            let tr = ghost.row;
+            let tc = ghost.col;
+            switch (dir) {
+              case "up":    tr--; break;
+              case "down":  tr++; break;
+              case "left":  tc--; break;
+              case "right": tc++; break;
+            }
+            const dist = Math.abs(tr - p.row) + Math.abs(tc - p.col);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestDir = dir;
+            }
+          }
+          ghost.direction = bestDir;
+        } else {
+          ghost.direction = validDirs[Math.floor(Math.random() * validDirs.length)];
+        }
+
         // snap to center for clean turns
         ghost.x = centerX;
         ghost.y = centerY;
         ghost.lastTurnTile = tileKey;
+        ghost.decisionTimer = 0.25;
       }
     }
 
