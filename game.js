@@ -19,10 +19,39 @@ const keys = {};
 window.addEventListener("keydown", (e) => { keys[e.key] = true; });
 window.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
+canvas.addEventListener("click", (e) => {
+  if (!state.player.alive) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // adjust for DPI
+    const scaleX = LOGICAL_W / canvas.clientWidth;
+    const scaleY = LOGICAL_H / canvas.clientHeight;
+
+    const x = mx * scaleX;
+    const y = my * scaleY;
+
+    // same button bounds as render
+    const btnW = 200;
+    const btnH = 50;
+    const btnX = LOGICAL_W / 2 - btnW / 2;
+    const btnY = LOGICAL_H / 2 + 10;
+
+    if (
+      x >= btnX && x <= btnX + btnW &&
+      y >= btnY && y <= btnY + btnH
+    ) {
+      resetGame();
+    }
+  }
+});
+
 // ─── Central State ──────────────────────────────────────────
 const state = {
   game: {
     running: true,
+    started: false,
     time: 0
   },
 
@@ -47,8 +76,24 @@ const state = {
   },
 
   ghosts: [
-    { row: 0, col: 0, direction: "left" },
-    { row: 12, col: 5, direction: "right" }
+    {
+      row: 3, col: 3,
+      x: 3 * Math.min(800 / 25, 600 / 25),
+      y: 3 * Math.min(800 / 25, 600 / 25),
+      direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null
+    },
+    {
+      row: 3, col: 21,
+      x: 21 * Math.min(800 / 25, 600 / 25),
+      y: 3 * Math.min(800 / 25, 600 / 25),
+      direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null
+    },
+    {
+      row: 21, col: 15,
+      x: 15 * Math.min(800 / 25, 600 / 25),
+      y: 21 * Math.min(800 / 25, 600 / 25),
+      direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null
+    }
   ],
 
   systems: {
@@ -77,7 +122,7 @@ function initGrid(state) {
       // border walls
       if (r === 0 || r === rows - 1 || c === 0 || c === cols - 1) {
         row.push(1);
-      // some inner walls (simple corridors)
+        // some inner walls (simple corridors)
       } else if (
         (r === 5 && c >= 3 && c <= 10) ||
         (r === 5 && c >= 14 && c <= 21) ||
@@ -91,10 +136,10 @@ function initGrid(state) {
         (c === 12 && r >= 17 && r <= 22)
       ) {
         row.push(1);
-      // player starting tile is empty
+        // player starting tile is empty
       } else if (r === state.player.row && c === state.player.col) {
         row.push(0);
-      // randomized: 5% pill, 65% food, 30% empty
+        // randomized: 5% pill, 65% food, 30% empty
       } else {
         const roll = Math.random();
         if (roll < 0.05) {
@@ -114,6 +159,49 @@ function initGrid(state) {
 
 initGrid(state);
 
+// ─── Reset / Restart ────────────────────────────────────────
+function resetGame() {
+  // reset player
+  state.player.row = 15;
+  state.player.col = 7;
+  state.player.x = state.player.col * tileSize;
+  state.player.y = state.player.row * tileSize;
+  state.player.direction = null;
+  state.player.nextDirection = null;
+  state.player.weight = 0;
+  state.player.alive = true;
+
+  // reset systems
+  state.systems.fullness.value = 0;
+  state.systems.timer.value = 30;
+
+  // reset time
+  state.game.time = 0;
+  state.game.started = false;
+
+  // regenerate grid
+  initGrid(state);
+
+  // reset ghosts
+  const ghostDefaults = [
+    { row: 3, col: 3, direction: "right", speed: 85, color: "#ff4d4d", lastTurnTile: null },
+    { row: 3, col: 21, direction: "left", speed: 85, color: "#ff77ff", lastTurnTile: null },
+    { row: 21, col: 15, direction: "up", speed: 85, color: "#33ffff", lastTurnTile: null }
+  ];
+  for (let i = 0; i < state.ghosts.length; i++) {
+    const def = ghostDefaults[i];
+    const g = state.ghosts[i];
+    g.row = def.row;
+    g.col = def.col;
+    g.x = def.col * tileSize;
+    g.y = def.row * tileSize;
+    g.direction = def.direction;
+    g.speed = def.speed;
+    g.color = def.color;
+    g.lastTurnTile = def.lastTurnTile;
+  }
+}
+
 // ─── Input ──────────────────────────────────────────────────
 function handleInput(state) {
   if (!state.player.alive) return;
@@ -130,19 +218,26 @@ function update(state, dt) {
 
   state.game.time += dt;
 
-  // survival timer countdown
-  state.systems.timer.value -= dt;
-  if (state.systems.timer.value < 0) {
-    state.systems.timer.value = 0;
-    state.player.alive = false;
-  }
-
   const p = state.player;
   const tiles = state.grid.tiles;
 
   // activate movement on first input
   if (p.direction === null && p.nextDirection !== null) {
     p.direction = p.nextDirection;
+  }
+
+  // mark game as started once player moves
+  if (p.direction && !state.game.started) {
+    state.game.started = true;
+  }
+
+  // survival timer countdown (only after first input)
+  if (state.game.started) {
+    state.systems.timer.value -= dt;
+    if (state.systems.timer.value < 0) {
+      state.systems.timer.value = 0;
+      state.player.alive = false;
+    }
   }
 
   // store previous tile before movement
@@ -164,9 +259,9 @@ function update(state, dt) {
       let targetRow = p.row;
       let targetCol = p.col;
       switch (p.nextDirection) {
-        case "up":    targetRow--; break;
-        case "down":  targetRow++; break;
-        case "left":  targetCol--; break;
+        case "up": targetRow--; break;
+        case "down": targetRow++; break;
+        case "left": targetCol--; break;
         case "right": targetCol++; break;
       }
 
@@ -199,14 +294,14 @@ function update(state, dt) {
 
       switch (p.direction) {
         case "right": nextX += move; break;
-        case "left":  nextX -= move; break;
-        case "up":    nextY -= move; break;
-        case "down":  nextY += move; break;
+        case "left": nextX -= move; break;
+        case "up": nextY -= move; break;
+        case "down": nextY += move; break;
       }
 
       // check leading edge based on direction
       const leadX = (p.direction === "right") ? nextX + tileSize - 1 : nextX;
-      const leadY = (p.direction === "down")  ? nextY + tileSize - 1 : nextY;
+      const leadY = (p.direction === "down") ? nextY + tileSize - 1 : nextY;
 
       const checkCol = Math.floor(leadX / tileSize);
       const checkRow = Math.floor(leadY / tileSize);
@@ -246,6 +341,103 @@ function update(state, dt) {
   // keep prevRow/prevCol in sync for external reads
   p.prevRow = prevRow;
   p.prevCol = prevCol;
+
+  // ─── Ghost Update ───────────────────────────────────────
+  const opposite = { left: "right", right: "left", up: "down", down: "up" };
+
+  for (const ghost of state.ghosts) {
+    // --- intersection direction choosing ---
+    const centerX = ghost.col * tileSize;
+    const centerY = ghost.row * tileSize;
+
+    const nearCenter =
+      Math.abs(ghost.x - centerX) < 3 &&
+      Math.abs(ghost.y - centerY) < 3;
+
+    const tileKey = ghost.row + "," + ghost.col;
+
+    if (nearCenter && ghost.lastTurnTile !== tileKey) {
+      // find valid directions (non-wall neighbors)
+      const dirOffsets = [
+        { dir: "up",    dr: -1, dc: 0 },
+        { dir: "down",  dr: 1,  dc: 0 },
+        { dir: "left",  dr: 0,  dc: -1 },
+        { dir: "right", dr: 0,  dc: 1 }
+      ];
+
+      let validDirs = [];
+      for (const { dir, dr, dc } of dirOffsets) {
+        const nr = ghost.row + dr;
+        const nc = ghost.col + dc;
+        if (
+          nr >= 0 && nr < state.grid.rows &&
+          nc >= 0 && nc < state.grid.cols &&
+          tiles[nr][nc] !== 1
+        ) {
+          validDirs.push(dir);
+        }
+      }
+
+      // remove reverse unless it's the only option (dead end)
+      if (validDirs.length > 1) {
+        const rev = opposite[ghost.direction];
+        validDirs = validDirs.filter(d => d !== rev);
+      }
+
+      // pick random direction
+      if (validDirs.length > 0) {
+        ghost.direction = validDirs[Math.floor(Math.random() * validDirs.length)];
+        // snap to center for clean turns
+        ghost.x = centerX;
+        ghost.y = centerY;
+        ghost.lastTurnTile = tileKey;
+      }
+    }
+
+    // --- movement ---
+    const move = ghost.speed * dt;
+
+    let nextX = ghost.x;
+    let nextY = ghost.y;
+
+    switch (ghost.direction) {
+      case "right": nextX += move; break;
+      case "left":  nextX -= move; break;
+      case "up":    nextY -= move; break;
+      case "down":  nextY += move; break;
+    }
+
+    // leading edge collision
+    const leadX = (ghost.direction === "right") ? nextX + tileSize - 1 : nextX;
+    const leadY = (ghost.direction === "down")  ? nextY + tileSize - 1 : nextY;
+    const gCol = Math.floor(leadX / tileSize);
+    const gRow = Math.floor(leadY / tileSize);
+
+    const gInBounds =
+      gRow >= 0 && gRow < state.grid.rows &&
+      gCol >= 0 && gCol < state.grid.cols;
+
+    if (gInBounds && tiles[gRow][gCol] !== 1) {
+      ghost.x = nextX;
+      ghost.y = nextY;
+    } else {
+      // fallback: reverse and snap (shouldn't happen often now)
+      ghost.direction = opposite[ghost.direction];
+      ghost.x = Math.round(ghost.x / tileSize) * tileSize;
+      ghost.y = Math.round(ghost.y / tileSize) * tileSize;
+    }
+
+    ghost.col = Math.floor(ghost.x / tileSize);
+    ghost.row = Math.floor(ghost.y / tileSize);
+
+    // player collision
+    const dx = p.x - ghost.x;
+    const dy = p.y - ghost.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < tileSize * 0.6) {
+      state.player.alive = false;
+    }
+  }
 }
 
 // ─── Render ─────────────────────────────────────────────────
@@ -291,19 +483,72 @@ function render(state) {
   ctx.arc(px, py, tileSize * 0.4, 0, Math.PI * 2);
   ctx.fill();
 
+  // draw ghosts
+  for (const ghost of state.ghosts) {
+    const gx = ghost.x + tileSize / 2;
+    const gy = ghost.y + tileSize / 2;
+    ctx.fillStyle = ghost.color;
+    ctx.beginPath();
+    ctx.arc(gx, gy, tileSize * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   // draw UI panel
   renderPanel(state);
 
   // game over overlay
   if (!state.player.alive) {
-    ctx.fillStyle = "rgba(0,0,0,0.6)";
-    ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+    // pixelated dark overlay
+    const block = 8;
+
+    for (let bx = 0; bx < LOGICAL_W; bx += block) {
+      for (let by = 0; by < LOGICAL_H; by += block) {
+        const shade = 0.65 + Math.random() * 0.25;
+        ctx.fillStyle = `rgba(0,0,0,${shade})`;
+        ctx.fillRect(bx, by, block, block);
+      }
+    }
+
+    const centerX = LOGICAL_W / 2;
+    const centerY = LOGICAL_H / 2;
 
     ctx.fillStyle = "#ff4444";
     ctx.font = "bold 40px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("GAME OVER", LOGICAL_W / 2, LOGICAL_H / 2);
+    ctx.fillText("GAME OVER", centerX, centerY - 40);
+
+    // draw restart button
+    const btnW = 200;
+    const btnH = 50;
+    const btnX = centerX - btnW / 2;
+    const btnY = centerY + 10;
+
+    // dark grey button background
+    ctx.fillStyle = "#222";
+    ctx.fillRect(btnX, btnY, btnW, btnH);
+
+    // 3D beveled blue border (Pac-Man arcade style)
+    const bw = 4; // border width
+
+    // top edge (light blue)
+    ctx.fillStyle = "#4466ee";
+    ctx.fillRect(btnX, btnY, btnW, bw);
+
+    // left edge (light blue)
+    ctx.fillRect(btnX, btnY, bw, btnH);
+
+    // bottom edge (dark blue)
+    ctx.fillStyle = "#4466ee";
+    ctx.fillRect(btnX, btnY + btnH - bw, btnW, bw);
+
+    // right edge (dark blue)
+    ctx.fillRect(btnX + btnW - bw, btnY, bw, btnH);
+
+    // white retro text
+    ctx.fillStyle = "#fff";
+    ctx.font = "18px monospace";
+    ctx.fillText("RESTART", centerX, btnY + btnH / 2);
   }
 }
 
