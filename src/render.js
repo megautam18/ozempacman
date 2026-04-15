@@ -4,9 +4,13 @@ import { renderPanel } from "./ui.js";
 export function render(state, ctx) {
   const { rows, cols, tiles } = state.grid;
 
-  // clear
-  ctx.fillStyle = "#111";
+  // clear with dark maze background
+  ctx.fillStyle = "#000814";
   ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
+
+  // enable glow for walls
+  ctx.shadowColor = "#2244ff";
+  ctx.shadowBlur = 8;
 
   // draw grid
   for (let r = 0; r < rows; r++) {
@@ -16,9 +20,36 @@ export function render(state, ctx) {
       const tile = tiles[r][c];
 
       if (tile === 1) {
-        // wall
-        ctx.fillStyle = "#2244cc";
-        ctx.fillRect(x, y, tileSize, tileSize);
+        // wall solid body (drawn slightly larger to prevent seams)
+        ctx.fillStyle = "#081428";
+        ctx.fillRect(x - 1, y - 1, tileSize + 2, tileSize + 2);
+
+        // check neighbors to draw continuous edges
+        ctx.strokeStyle = "#2244ff";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+
+        // top edge
+        if (r === 0 || tiles[r - 1][c] !== 1) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + tileSize, y);
+        }
+        // bottom edge
+        if (r === rows - 1 || tiles[r + 1][c] !== 1) {
+          ctx.moveTo(x, y + tileSize);
+          ctx.lineTo(x + tileSize, y + tileSize);
+        }
+        // left edge
+        if (c === 0 || tiles[r][c - 1] !== 1) {
+          ctx.moveTo(x, y);
+          ctx.lineTo(x, y + tileSize);
+        }
+        // right edge
+        if (c === cols - 1 || tiles[r][c + 1] !== 1) {
+          ctx.moveTo(x + tileSize, y);
+          ctx.lineTo(x + tileSize, y + tileSize);
+        }
+        ctx.stroke();
       } else if (tile === 2) {
         // food dot
         ctx.fillStyle = "#ffffff";
@@ -34,6 +65,10 @@ export function render(state, ctx) {
       }
     }
   }
+
+  // disable glow for remaining elements
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
 
   // draw player (Pac-Man mouth animation)
   const cx = state.player.x + tileSize / 2;
