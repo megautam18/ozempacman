@@ -29,6 +29,7 @@ function resetGame() {
   state.player.nextDirection = null;
   state.player.weight = 0;
   state.player.alive = true;
+  state.player.bobTimer = 0;
 
   // reset systems
   state.systems.fullness.value = 0;
@@ -40,6 +41,8 @@ function resetGame() {
   state.game.time = 0;
   state.game.started = false;
   state.game.ghostChaseDelay = 4;
+  state.game.ghostMode = "scatter";
+  state.game.modeTimer = 7;
 
   // regenerate grid
   initGrid(state);

@@ -5,7 +5,9 @@ export const state = {
     running: true,
     started: false,
     time: 0,
-    ghostChaseDelay: 4
+    ghostChaseDelay: 4,
+    ghostMode: "scatter",
+    modeTimer: 7
   },
 
   grid: {
@@ -25,7 +27,10 @@ export const state = {
     nextDirection: null,
     weight: 0,
     baseSpeed: 110,
-    alive: true
+    alive: true,
+    mouthAngle: 0.25,
+    mouthDir: 1,
+    bobTimer: 0
   },
 
   ghosts: [

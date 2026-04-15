@@ -32,6 +32,20 @@ export function updatePlayer(state, dt) {
     state.game.ghostChaseDelay -= dt;
   }
 
+  // scatter/chase mode cycling
+  if (state.game.started) {
+    state.game.modeTimer -= dt;
+    if (state.game.modeTimer <= 0) {
+      if (state.game.ghostMode === "scatter") {
+        state.game.ghostMode = "chase";
+        state.game.modeTimer = 20;
+      } else {
+        state.game.ghostMode = "scatter";
+        state.game.modeTimer = 7;
+      }
+    }
+  }
+
   // ozempic effect countdown
   if (state.systems.ozempic.active) {
     state.systems.ozempic.timer -= dt;
@@ -144,4 +158,23 @@ export function updatePlayer(state, dt) {
   // keep prevRow/prevCol in sync for external reads
   p.prevRow = prevRow;
   p.prevCol = prevCol;
+
+  // mouth animation
+  if (!p.direction) {
+    // idle: hold a slight open mouth
+    p.mouthAngle = 0.12;
+  } else {
+    // scale chew speed with movement speed
+    const fullness = state.systems.fullness.value;
+    const limit = state.systems.fullness.limit;
+    const ratio = fullness / limit;
+    const speedFactor = Math.max(0.4, 1 - ratio);
+
+    p.mouthAngle += p.mouthDir * dt * 2 * speedFactor;
+    if (p.mouthAngle > 0.40) p.mouthDir = -1;
+    if (p.mouthAngle < 0.06) p.mouthDir = 1;
+    
+    // wobble animation
+    p.bobTimer += dt * 8;
+  }
 }

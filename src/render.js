@@ -35,21 +35,89 @@ export function render(state, ctx) {
     }
   }
 
-  // draw player (pixel-smooth position)
-  const px = state.player.x + tileSize / 2;
-  const py = state.player.y + tileSize / 2;
-  ctx.fillStyle = "#ffdd00";
+  // draw player (Pac-Man mouth animation)
+  const cx = state.player.x + tileSize / 2;
+  const cy = state.player.y + tileSize / 2;
+  const mouth = state.player.mouthAngle;
+
+  let rotation = 0;
+  switch (state.player.direction) {
+    case "right": rotation = 0; break;
+    case "left":  rotation = Math.PI; break;
+    case "up":    rotation = -Math.PI / 2; break;
+    case "down":  rotation = Math.PI / 2; break;
+  }
+
+  // add wobble effect
+  rotation += Math.sin(state.player.bobTimer) * 0.08;
+
   ctx.beginPath();
-  ctx.arc(px, py, tileSize * 0.4, 0, Math.PI * 2);
+  ctx.moveTo(cx, cy);
+  ctx.arc(cx, cy, tileSize * 0.45, rotation + mouth, rotation + (Math.PI * 2 - mouth));
+  ctx.closePath();
+  ctx.fillStyle = "#ffdd00";
   ctx.fill();
 
-  // draw ghosts
+  // draw ghosts (classic Pac-Man shape)
   for (const ghost of state.ghosts) {
     const gx = ghost.x + tileSize / 2;
     const gy = ghost.y + tileSize / 2;
-    ctx.fillStyle = ghost.color;
+    const r = tileSize * 0.45;
+
+    // --- body ---
     ctx.beginPath();
-    ctx.arc(gx, gy, tileSize * 0.4, 0, Math.PI * 2);
+    // top semicircle
+    ctx.arc(gx, gy - r * 0.2, r, Math.PI, 0);
+
+    // right side down
+    const bottom = gy - r * 0.2 + r;
+    ctx.lineTo(gx + r, bottom);
+
+    // wavy bottom (4 waves)
+    const waveH = r * 0.2;
+    ctx.lineTo(gx + r / 2, bottom - waveH);
+    ctx.lineTo(gx, bottom);
+    ctx.lineTo(gx - r / 2, bottom - waveH);
+    ctx.lineTo(gx - r, bottom);
+
+    // left side back up
+    ctx.lineTo(gx - r, gy - r * 0.2);
+
+    ctx.closePath();
+    ctx.fillStyle = ghost.color;
+    ctx.fill();
+
+    // --- eyes ---
+    const eyeOffsetX = r * 0.35;
+    const eyeOffsetY = -r * 0.1;
+    const eyeR = r * 0.25;
+
+    // white sclera
+    ctx.fillStyle = "#fff";
+    ctx.beginPath();
+    ctx.arc(gx - eyeOffsetX, gy + eyeOffsetY, eyeR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(gx + eyeOffsetX, gy + eyeOffsetY, eyeR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // --- pupils (direction-aware) ---
+    let pupilDx = 0;
+    let pupilDy = 0;
+    switch (ghost.direction) {
+      case "right": pupilDx = 3; break;
+      case "left":  pupilDx = -3; break;
+      case "up":    pupilDy = -3; break;
+      case "down":  pupilDy = 3; break;
+    }
+    const pupilR = r * 0.12;
+
+    ctx.fillStyle = "#22e";
+    ctx.beginPath();
+    ctx.arc(gx - eyeOffsetX + pupilDx, gy + eyeOffsetY + pupilDy, pupilR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(gx + eyeOffsetX + pupilDx, gy + eyeOffsetY + pupilDy, pupilR, 0, Math.PI * 2);
     ctx.fill();
   }
 
