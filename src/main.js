@@ -43,15 +43,17 @@ function resetGame() {
   state.game.ghostChaseDelay = 4;
   state.game.ghostMode = "scatter";
   state.game.modeTimer = 7;
+  state.game.ghostStartDelay = 3;
+  state.game.ghostsReleased = false;
 
   // regenerate grid
   initGrid(state);
 
   // reset ghosts
   const ghostDefaults = [
-    { row: 3, col: 3, direction: "right", speed: 80, color: "#ff4d4d", lastTurnTile: null, decisionTimer: 0 },
-    { row: 3, col: 21, direction: "left", speed: 80, color: "#ff77ff", lastTurnTile: null, decisionTimer: 0 },
-    { row: 21, col: 15, direction: "up", speed: 80, color: "#33ffff", lastTurnTile: null, decisionTimer: 0 }
+    { row: 12, col: 12, direction: "right", speed: 80, color: "#ff4d4d", lastTurnTile: null, decisionTimer: 0 },
+    { row: 12, col: 12, direction: "left", speed: 80, color: "#ff77ff", lastTurnTile: null, decisionTimer: 0 },
+    { row: 12, col: 12, direction: "up", speed: 80, color: "#33ffff", lastTurnTile: null, decisionTimer: 0 }
   ];
   for (let i = 0; i < state.ghosts.length; i++) {
     const def = ghostDefaults[i];

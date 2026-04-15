@@ -2,6 +2,7 @@ import { tileSize } from "./config.js";
 
 export function updateGhosts(state, dt) {
   if (!state.player.alive) return;
+  if (!state.game.ghostsReleased) return;
 
   const p = state.player;
   const tiles = state.grid.tiles;

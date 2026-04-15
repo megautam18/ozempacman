@@ -88,36 +88,37 @@ export function render(state, ctx) {
     ctx.fill();
 
     // --- eyes ---
-    const eyeOffsetX = r * 0.35;
-    const eyeOffsetY = -r * 0.1;
-    const eyeR = r * 0.25;
+    const leftEyeX = gx - r * 0.35;
+    const rightEyeX = gx + r * 0.35;
+    const eyeY = gy - r * 0.1;
+    const eyeRadius = r * 0.25;
 
     // white sclera
     ctx.fillStyle = "#fff";
     ctx.beginPath();
-    ctx.arc(gx - eyeOffsetX, gy + eyeOffsetY, eyeR, 0, Math.PI * 2);
+    ctx.arc(leftEyeX, eyeY, eyeRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(gx + eyeOffsetX, gy + eyeOffsetY, eyeR, 0, Math.PI * 2);
+    ctx.arc(rightEyeX, eyeY, eyeRadius, 0, Math.PI * 2);
     ctx.fill();
 
     // --- pupils (direction-aware) ---
     let pupilDx = 0;
     let pupilDy = 0;
     switch (ghost.direction) {
-      case "right": pupilDx = 3; break;
-      case "left":  pupilDx = -3; break;
-      case "up":    pupilDy = -3; break;
-      case "down":  pupilDy = 3; break;
+      case "right": pupilDx = r * 0.12; break;
+      case "left":  pupilDx = -r * 0.12; break;
+      case "up":    pupilDy = -r * 0.12; break;
+      case "down":  pupilDy = r * 0.12; break;
     }
     const pupilR = r * 0.12;
 
-    ctx.fillStyle = "#22e";
+    ctx.fillStyle = "#2244ff";
     ctx.beginPath();
-    ctx.arc(gx - eyeOffsetX + pupilDx, gy + eyeOffsetY + pupilDy, pupilR, 0, Math.PI * 2);
+    ctx.arc(leftEyeX + pupilDx, eyeY + pupilDy, pupilR, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(gx + eyeOffsetX + pupilDx, gy + eyeOffsetY + pupilDy, pupilR, 0, Math.PI * 2);
+    ctx.arc(rightEyeX + pupilDx, eyeY + pupilDy, pupilR, 0, Math.PI * 2);
     ctx.fill();
   }
 

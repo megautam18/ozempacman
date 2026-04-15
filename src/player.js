@@ -32,6 +32,15 @@ export function updatePlayer(state, dt) {
     state.game.ghostChaseDelay -= dt;
   }
 
+  // ghost start delay countdown
+  if (state.game.started && !state.game.ghostsReleased) {
+    state.game.ghostStartDelay -= dt;
+    if (state.game.ghostStartDelay <= 0) {
+      state.game.ghostStartDelay = 0;
+      state.game.ghostsReleased = true;
+    }
+  }
+
   // scatter/chase mode cycling
   if (state.game.started) {
     state.game.modeTimer -= dt;
