@@ -180,7 +180,12 @@ export function render(state, ctx) {
     ctx.font = "bold 40px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("GAME OVER", centerX, centerY - 40);
+    ctx.fillText("GAME OVER", centerX, centerY - 50);
+
+    // display final score
+    ctx.fillStyle = "#ffdd00";
+    ctx.font = "bold 20px monospace";
+    ctx.fillText("Score: " + state.game.score.toFixed(1), centerX, centerY - 15);
 
     // draw restart button
     const btnW = 200;

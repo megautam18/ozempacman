@@ -41,6 +41,14 @@ export function renderPanel(state, ctx) {
   ctx.fillText(String(state.player.weight), x, y);
   y += lineH + 4;
 
+  // score
+  ctx.fillStyle = "#aaa";
+  ctx.fillText("Score", x, y);
+  y += lineH * 0.7;
+  ctx.fillStyle = "#ffdd00";
+  ctx.fillText(state.game.score.toFixed(1), x, y);
+  y += lineH + 4;
+
   // fullness
   ctx.fillStyle = "#aaa";
   ctx.fillText("Fullness", x, y);
@@ -88,16 +96,4 @@ export function renderPanel(state, ctx) {
     ctx.fillText("inactive", x, y);
   }
   y += lineH + 4;
-
-  // game time
-  ctx.fillStyle = "#aaa";
-  ctx.fillText("Time", x, y);
-  y += lineH * 0.7;
-  ctx.fillStyle = "#fff";
-  const mins = Math.floor(state.game.time / 60);
-  const secs = Math.floor(state.game.time % 60);
-  ctx.fillText(
-    String(mins).padStart(2, "0") + ":" + String(secs).padStart(2, "0"),
-    x, y
-  );
 }

@@ -36,15 +36,15 @@ function resetGame() {
   state.systems.timer.value = 30;
   state.systems.ozempic.active = false;
   state.systems.ozempic.timer = 0;
-
-  // reset time
-  state.game.time = 0;
+  // reset flags
   state.game.started = false;
   state.game.ghostChaseDelay = 4;
   state.game.ghostMode = "scatter";
   state.game.modeTimer = 7;
   state.game.ghostStartDelay = 3;
   state.game.ghostsReleased = false;
+  state.game.score = 0;
+  state.game.ozempicCount = 0;
 
   // regenerate grid
   initGrid(state);

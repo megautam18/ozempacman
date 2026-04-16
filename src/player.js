@@ -3,8 +3,6 @@ import { tileSize } from "./config.js";
 export function updatePlayer(state, dt) {
   if (!state.player.alive) return;
 
-  state.game.time += dt;
-
   const p = state.player;
   const tiles = state.grid.tiles;
 
@@ -52,6 +50,7 @@ export function updatePlayer(state, dt) {
         state.game.ghostMode = "scatter";
         state.game.modeTimer = 7;
       }
+      console.log("Ghost mode:", state.game.ghostMode);
     }
   }
 
@@ -154,11 +153,18 @@ export function updatePlayer(state, dt) {
           tiles[p.row][p.col] = 0;
           p.weight += 1;
           state.systems.fullness.value += 1;
+          // update weight-based score
+          state.game.score = (p.weight / 10) + Math.floor(state.game.ozempicCount / 5);
         } else if (tile === 3) {
           tiles[p.row][p.col] = 0;
           state.systems.fullness.value = 0;
           state.systems.ozempic.active = true;
           state.systems.ozempic.timer = 5;
+          // ozempic bonus scoring
+          state.game.ozempicCount += 1;
+          if (state.game.ozempicCount % 5 === 0) {
+            state.game.score += 1;
+          }
         }
       }
     }

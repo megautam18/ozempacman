@@ -4,12 +4,13 @@ export const state = {
   game: {
     running: true,
     started: false,
-    time: 0,
     ghostChaseDelay: 4,
     ghostMode: "scatter",
     modeTimer: 7,
     ghostStartDelay: 3,
-    ghostsReleased: false
+    ghostsReleased: false,
+    score: 0,
+    ozempicCount: 0
   },
 
   grid: {
