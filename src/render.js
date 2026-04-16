@@ -176,22 +176,32 @@ export function render(state, ctx) {
     const centerX = LOGICAL_W / 2;
     const centerY = LOGICAL_H / 2;
 
+    // title
     ctx.fillStyle = "#ff4444";
     ctx.font = "bold 40px monospace";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("GAME OVER", centerX, centerY - 50);
+    ctx.fillText("GAME OVER", centerX, centerY - 80);
 
-    // display final score
+    // final stats
+    ctx.font = "bold 18px monospace";
+    const statY = centerY - 40;
+    const lineGap = 26;
+
     ctx.fillStyle = "#ffdd00";
-    ctx.font = "bold 20px monospace";
-    ctx.fillText("Score: " + state.game.score.toFixed(1), centerX, centerY - 15);
+    ctx.fillText("Score: " + state.game.score.toFixed(1), centerX, statY);
+
+    ctx.fillStyle = "#fff";
+    ctx.fillText("Weight: " + state.player.weight, centerX, statY + lineGap);
+
+    ctx.fillStyle = "#00ffaa";
+    ctx.fillText("Ozempics: " + state.game.ozempicCount, centerX, statY + lineGap * 2);
 
     // draw restart button
     const btnW = 200;
     const btnH = 50;
     const btnX = centerX - btnW / 2;
-    const btnY = centerY + 10;
+    const btnY = centerY + 40;
 
     // dark grey button background
     ctx.fillStyle = "#222";

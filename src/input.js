@@ -25,7 +25,7 @@ export function setupInput(state, resetGameFunc) {
       const btnW = 200;
       const btnH = 50;
       const btnX = LOGICAL_W / 2 - btnW / 2;
-      const btnY = LOGICAL_H / 2 + 10;
+      const btnY = LOGICAL_H / 2 + 40;
 
       if (
         x >= btnX && x <= btnX + btnW &&
